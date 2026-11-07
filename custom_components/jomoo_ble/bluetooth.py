@@ -8,22 +8,28 @@ from bleak_retry_connector import BleakClientWithServiceCache, establish_connect
 from homeassistant.components import bluetooth
 from homeassistant.core import HomeAssistant
 
-from .const import MODEL_CODE
+from .const import MODELS
 from .lib.client import SessionError, SessionManager
+
+
+def advertised_model(name: str | None, prefix: str) -> str | None:
+    if not name or not name.startswith(prefix):
+        return None
+    return MODELS.get(name.rsplit("_", 1)[-1]) if "_" in name else None
 
 
 def supported_name(name: str | None, prefix: str) -> bool:
     """A name match is model evidence, not authentication."""
-    return bool(name) and name.startswith(prefix) and name.endswith("_" + MODEL_CODE)
+    return advertised_model(name, prefix) is not None
 
 
-def make_session(hass: HomeAssistant, address: str, prefix: str) -> SessionManager:
+def make_session(hass: HomeAssistant, address: str, prefix: str, model: str) -> SessionManager:
     async def connect():
         info = bluetooth.async_last_service_info(hass, address, connectable=True)
         device = bluetooth.async_ble_device_from_address(hass, address, connectable=True)
         if info is None or device is None:
             raise SessionError("No connectable Bluetooth advertisement for this toilet")
-        if not supported_name(info.name, prefix):
+        if advertised_model(info.name, prefix) != model:
             raise SessionError("Unsupported advertised model")
         return await asyncio.wait_for(
             establish_connection(
@@ -40,5 +46,5 @@ def make_session(hass: HomeAssistant, address: str, prefix: str) -> SessionManag
             timeout=90,
         )
 
-    session = SessionManager(connect)
+    session = SessionManager(connect, model=model)
     return session

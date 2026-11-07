@@ -4,7 +4,7 @@
     "flow_title": "{name}",
     "step": {
       "user": {
-        "title": "九牧 ZS800J（蓝牙）",
+        "title": "九牧（蓝牙）",
         "description": "请先关闭官方小程序：马桶同一时间只接受一个蓝牙连接。添加时会做一次只读状态查询（马桶会嘀一声）。控制功能默认关闭。",
         "data": {
           "address": "蓝牙 MAC 地址",
@@ -12,7 +12,7 @@
         }
       },
       "bluetooth_confirm": {
-        "title": "九牧 ZS800J（蓝牙）",
+        "title": "九牧（蓝牙）",
         "description": "要添加 {name} 吗？请先关闭官方小程序。添加时会做一次只读状态查询（马桶会嘀一声）。"
       }
     },
@@ -80,6 +80,12 @@
       },
       "foam_low": {
         "name": "泡沫液不足"
+      },
+      "auto_flush": {
+        "name": "自动冲水（实验）"
+      },
+      "auto_cover": {
+        "name": "自动翻盖"
       }
     },
     "button": {
@@ -173,6 +179,15 @@
       },
       "raw_e7": {
         "name": "原始 E7"
+      },
+      "water_temperature": {
+        "name": "水温档位"
+      },
+      "seat_temperature": {
+        "name": "座温档位"
+      },
+      "air_temperature": {
+        "name": "暖风温度档位"
       }
     },
     "switch": {

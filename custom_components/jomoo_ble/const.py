@@ -1,10 +1,13 @@
 """Integration constants."""
 
+from .lib.protocol import ZS800J, ZS821J
+
 DOMAIN = "jomoo_ble"
 DEFAULT_PREFIX = "JOMOO_SMART_"
 MANUFACTURER = "JOMOO"
-MODEL = "ZS800J"
-MODEL_CODE = "237369"
+
+CONF_MODEL = "model"
+MODELS = {"237369": ZS800J, "294180": ZS821J}
 
 CONF_NAME_PREFIX = "name_prefix"
 CONF_ENABLE_STATUS_STREAM = "enable_status_stream"

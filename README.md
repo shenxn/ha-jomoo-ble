@@ -2,9 +2,11 @@
 
 [简体中文](README.zh-CN.md) · Apache-2.0 · Unofficial Home Assistant custom integration
 
-Local Bluetooth control of the **JOMOO ZS800J** smart toilet from Home Assistant, through
+Local Bluetooth control of the **JOMOO ZS800J** and read-only status for the **ZS821J** from Home Assistant, through
 any connectable HA Bluetooth adapter or an ESPHome Bluetooth proxy placed near the toilet.
 No cloud, no account, no vendor code.
+
+For ZS821J, use **Refresh status** to read lid, ring, occupancy, work status, water/seat/dryer temperature levels, automatic flush and automatic lid opening. Optional polling is configured in seconds (e.g. 900 for 15 minutes). Each query releases the connection. [ZS821J frame layouts](docs/protocol.md#zs821j)
 
 ## ⚠️ Breaking changes in 0.4.0
 
@@ -109,7 +111,7 @@ small flush, automatic lid opening and foot sensor off/on, with other settings u
 
 ## Hardware
 
-- A JOMOO ZS800J (advertises as `JOMOO_SMART_237369`). Other models are refused.
+- ZS800J advertises as `JOMOO_SMART_237369`. ZS821J advertises as `JOMOO_SMART_294180`.
 - A connectable Bluetooth path from Home Assistant to the toilet: a local adapter, or an
   [ESPHome Bluetooth proxy](https://esphome.io/components/bluetooth_proxy/) with
   `active: true`. Bathrooms attenuate Bluetooth heavily; put the proxy close to the
@@ -318,7 +320,7 @@ protection.
 
 ## Limitations
 
-- Only the ZS800J protocol profile is implemented and only one unit has been tested.
+- Control and persistent stream support are specific to ZS800J.
 - There is no transaction id in the protocol. A very late notification could be mistaken
   for a fresh answer.
 - Experimental controls are app-derived and unverified on hardware.

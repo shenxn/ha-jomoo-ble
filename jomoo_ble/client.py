@@ -16,6 +16,8 @@ from types import MappingProxyType
 from typing import Awaitable, Callable, Mapping, Optional, Protocol, Union
 
 from .protocol import (
+    ZS800J,
+    ZS821J,
     CHARACTERISTIC,
     EXTENDED,
     FILTER,
@@ -81,16 +83,18 @@ class Snapshot:
     warning: Optional[str] = None
     received_at: Mapping[int, datetime] = field(default_factory=dict)
 
+    model: str = ZS800J
+
     def __post_init__(self) -> None:
         object.__setattr__(self, "frames", MappingProxyType(dict(self.frames)))
         object.__setattr__(self, "received_at", MappingProxyType(dict(self.received_at)))
 
-    def _decode(self, command: int, decoder):
+    def _decode(self, command: int, decoder, *args):
         frame = self.frames.get(command)
         if frame is None:
             return None
         try:
-            return decoder(frame)
+            return decoder(frame, *args)
         except ProtocolError:
             return None
 
@@ -104,11 +108,11 @@ class Snapshot:
 
     @property
     def runtime(self) -> Optional[Runtime]:
-        return self._decode(WORK, decode_runtime)
+        return self._decode(WORK, decode_runtime, self.model)
 
     @property
     def mechanism(self) -> Optional[Mechanism]:
-        return self._decode(LID_RING, decode_mechanism)
+        return self._decode(LID_RING, decode_mechanism, self.model)
 
     @property
     def filter(self) -> Optional[FilterStatus]:
@@ -171,7 +175,12 @@ class SessionManager:
         settle_time: float = 0.4,
         poll_gap: float = 0.4,
         resend_interval: float = 2.0,
+        *,
+        model: str = ZS800J,
     ) -> None:
+        if model not in (ZS800J, ZS821J):
+            raise ValueError("Unsupported model")
+        self.model = model
         self._connect = connect
         self._lock = asyncio.Lock()
         self._closed = False
@@ -195,6 +204,8 @@ class SessionManager:
 
     def enable_stream(self, changed: Callable[[], None]) -> None:
         """Opt in before use. No connection until the explicit initial/manual poll."""
+        if self.model != ZS800J:
+            raise SessionError("Persistent status is not supported for this model")
         self._stream = True
         self._changed = changed
 
@@ -234,7 +245,7 @@ class SessionManager:
             return
         for frame in self._decoder.feed(bytes(data)):
             try:
-                validate_status(frame)
+                validate_status(frame, self.model)
             except ProtocolError:
                 continue
             received = datetime.now(timezone.utc)
@@ -248,7 +259,7 @@ class SessionManager:
                 times = dict(self.stream_snapshot.received_at)
                 frames[frame.command] = frame
                 times[frame.command] = received
-                self.stream_snapshot = Snapshot(frames, received_at=times)
+                self.stream_snapshot = Snapshot(frames, received_at=times, model=self.model)
             if self._stream and not self._closed and self._changed is not None:
                 self._changed()
 
@@ -282,6 +293,8 @@ class SessionManager:
         return await asyncio.shield(self._refresh_task)
 
     async def command(self, command: Command, prepare: Optional[Prepare] = None) -> Snapshot:
+        if self.model != ZS800J:
+            raise CommandRefused("Controls are not supported for this model")
         return await self._run(command, prepare)
 
     # ------------------------------------------------------------------ internals
@@ -340,7 +353,7 @@ class SessionManager:
                         ),
                         10,
                     )
-                before = await self._query(client, window, include_filter=True)
+                before = await self._query(client, window, include_filter=self.model == ZS800J)
                 if self._closed:
                     raise SessionError("Session closed during status query")
                 if self._stream:
@@ -348,6 +361,7 @@ class SessionManager:
                     self.stream_snapshot = Snapshot(
                         {**(prior.frames if prior else {}), **before.frames},
                         received_at={**(prior.received_at if prior else {}), **before.received_at},
+                        model=self.model,
                     )
                     if self._changed is not None:
                         self._changed()
@@ -397,7 +411,7 @@ class SessionManager:
         loop = asyncio.get_running_loop()
         deadline = loop.time() + self.response_timeout
         resend_at = loop.time() + self.resend_interval
-        required = REQUIRED + (
+        required = ((STATE, LID_RING, WORK) if self.model == ZS821J else REQUIRED) + (
             (FILTER,) if self._stream and include_filter and self.stream_snapshot is None else ()
         )
         while not all(c in window.frames for c in required):
@@ -421,8 +435,9 @@ class SessionManager:
             window.event.clear()
         # E7 and late duplicates may trail the required burst.
         await asyncio.sleep(self.settle_time)
-        snapshot = Snapshot(window.frames, received_at=window.received_at)
-        _full(snapshot)
+        snapshot = Snapshot(window.frames, received_at=window.received_at, model=self.model)
+        if self.model == ZS800J:
+            _full(snapshot)
         if not client.is_connected or self._connection_lost:
             raise SessionError("Connection lost during status query")
         return snapshot

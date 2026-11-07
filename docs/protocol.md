@@ -190,3 +190,7 @@ documented in [status-stream.md](status-stream.md).
 - There is no transaction id. A query clears the collected frames and waits for a fresh
   E2 / EA / E9 / FA burst, but a very delayed notification cannot be told apart.
 - Only one ZS800J unit and one settings profile have been exercised on hardware.
+
+## ZS821J
+
+Devices advertising model code `294180` accepted the same status query over FFE1 on two units. A unit reporting SV1.0.10 / PV1.8.1 returned E2 (7 payload bytes), EA (7), E9 (7), FA (10) and E7 (4). Only E2, EA and E9 are required for the nine status fields. Decode lid/ring position from EA byte 0, occupancy and work status from E9 bytes 0 and 3, and temperature levels and automatic settings from E2. Field meanings follow the ZS800J mapping; observations confirm standby snapshots, not every physical transition. No filter query or control write is needed.

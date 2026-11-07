@@ -23,3 +23,13 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
       - run: git diff --check
+
+  ha-zs821j:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run HA config flow and refresh against a simulated ZS821J
+        run: |
+          docker run --rm --network none --entrypoint python \
+            -v "$PWD:/repo:ro" ghcr.io/home-assistant/home-assistant:2026.9.1 \
+            /repo/tests/ha_smoke/smoke_in_ha_container.py /repo --zs821j

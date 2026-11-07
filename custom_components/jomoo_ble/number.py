@@ -5,6 +5,7 @@ from __future__ import annotations
 from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.helpers.entity import EntityCategory
 
+from .const import ZS821J
 from .entity import JomooEntity
 from .lib.client import SetSettings
 from .lib.protocol import RANGES
@@ -22,6 +23,8 @@ EXTENDED_ONLY = {"wind_speed", "wide_wash_level"}
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
+    if entry.runtime_data.model == ZS821J:
+        return
     async_add_entities(LevelNumber(entry.runtime_data, key) for key in LEVELS)
 
 

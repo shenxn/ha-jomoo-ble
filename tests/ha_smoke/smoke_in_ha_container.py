@@ -60,6 +60,7 @@ async def main():
     client_mod = importlib.import_module("custom_components.jomoo_ble.lib.client")
     btmod = importlib.import_module("custom_components.jomoo_ble.bluetooth")
 
+    zs821j = "--zs821j" in sys.argv
     state = {
         "e2": E2,
         "fa": FA,
@@ -70,6 +71,12 @@ async def main():
         "queries": [],
         "connect_error": False,
     }
+
+    if zs821j:
+        state["ea"] = proto.build_frame(
+            proto.LID_RING, bytes.fromhex("05000000000000"), proto.DEVICE
+        )
+        state["e9"] = proto.build_frame(proto.WORK, bytes.fromhex("00000001000000"), proto.DEVICE)
 
     def with_byte(frame, i, v):
         p = proto.parse_frame(frame)
@@ -145,7 +152,7 @@ async def main():
 
     btmod.establish_connection = fake_establish
     btmod.bluetooth.async_last_service_info = lambda *a, **kw: SimpleNamespace(
-        name="JOMOO_SMART_237369"
+        name="JOMOO_SMART_294180" if zs821j else "JOMOO_SMART_237369"
     )
     btmod.bluetooth.async_ble_device_from_address = lambda *a, **kw: object()
     coord_mod = importlib.import_module("custom_components.jomoo_ble.coordinator")
@@ -183,6 +190,35 @@ async def main():
         e.unique_id.endswith(("_status_stream_connected", "_last_status_received")) for e in ents
     )
     print("entities", len(ents), "disabled-by-default", sum(1 for e in ents if e.disabled_by))
+    if zs821j:
+        assert entry.data["model"] == "ZS821J"
+        keys = {e.unique_id.split("_", 1)[1]: e for e in ents}
+        expected = {
+            "lid_open",
+            "ring_open",
+            "seated",
+            "work_status",
+            "auto_cover",
+            "auto_flush",
+            "water_temperature",
+            "seat_temperature",
+            "air_temperature",
+        }
+        assert keys.keys() == expected | {"refresh"}
+        assert all(keys[k].domain in {"sensor", "binary_sensor"} for k in expected)
+        await hass.services.async_call(
+            "button", "press", {"entity_id": keys["refresh"].entity_id}, blocking=True
+        )
+        assert hass.states.get(keys["work_status"].entity_id).state == "standby"
+        assert hass.states.get(keys["water_temperature"].entity_id).state == "4"
+        assert state["queries"] == [proto.STATE, proto.STATE]
+        assert not state["writes"] and not any(c.is_connected for c in clients)
+        options = await hass.config_entries.options.async_init(entry.entry_id)
+        assert {str(k) for k in options["data_schema"].schema} == {"poll_interval"}
+        await hass.async_stop(force=True)
+        shutil.rmtree(cfg, ignore_errors=True)
+        print("ZS821J discovery identity, read-only entities, polling options and refresh PASS")
+        return
     sw = next(e.entity_id for e in ents if e.unique_id.endswith("_auto_cover"))
     print("auto_cover state before refresh", hass.states.get(sw).state)
 

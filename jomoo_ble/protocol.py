@@ -26,6 +26,9 @@ LID_RING = 0xEA
 EXTENDED = 0xFA
 OPTION = 0x1F
 EXPECTED_LENGTHS = {STATE: 7, FILTER: 4, WORK: 6, LID_RING: 13, EXTENDED: 8}
+ZS800J = "ZS800J"
+ZS821J = "ZS821J"
+STATUS_LAYOUTS = {ZS800J: EXPECTED_LENGTHS, ZS821J: {STATE: 7, WORK: 7, LID_RING: 7}}
 FILTER_LIFE_MINUTES = 13980
 
 
@@ -114,12 +117,13 @@ def filter_query() -> bytes:
     return build_frame(FILTER, bytes(4))
 
 
-def validate_status(frame: Frame) -> None:
+def validate_status(frame: Frame, model: str = ZS800J) -> None:
     if frame.source != DEVICE:
         raise ProtocolError("Not a toilet status frame")
-    if frame.command not in EXPECTED_LENGTHS:
+    lengths = STATUS_LAYOUTS.get(model, {})
+    if frame.command not in lengths:
         raise ProtocolError("Unmapped response command")
-    if len(frame.payload) != EXPECTED_LENGTHS[frame.command]:
+    if len(frame.payload) != lengths[frame.command]:
         raise ProtocolError("Unmapped response layout")
 
 
@@ -127,8 +131,8 @@ def _bit(value: int, bit: int) -> bool:
     return bool((value >> bit) & 1)
 
 
-def _require(frame: Frame, command: int) -> bytes:
-    validate_status(frame)
+def _require(frame: Frame, command: int, model: str = ZS800J) -> bytes:
+    validate_status(frame, model)
     if frame.command != command:
         raise ProtocolError(f"Expected 0x{command:02X} frame")
     return frame.payload
@@ -335,8 +339,8 @@ class Runtime:
         )
 
 
-def decode_runtime(frame: Frame) -> Runtime:
-    p = _require(frame, WORK)
+def decode_runtime(frame: Frame, model: str = ZS800J) -> Runtime:
+    p = _require(frame, WORK, model)
     return Runtime(
         seated=_bit(p[0], 7),
         deodorizing=_bit(p[0], 5),
@@ -379,8 +383,8 @@ class Mechanism:
 _POSITION = {1: False, 2: True}  # two-bit state: 01 closed, 10 open, else in transit
 
 
-def decode_mechanism(frame: Frame) -> Mechanism:
-    p = _require(frame, LID_RING)
+def decode_mechanism(frame: Frame, model: str = ZS800J) -> Mechanism:
+    p = _require(frame, LID_RING, model)
     flags = p[0]
     return Mechanism(
         lid_open=_POSITION.get((flags >> 2) & 3),

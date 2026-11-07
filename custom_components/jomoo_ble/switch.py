@@ -6,6 +6,7 @@ from homeassistant.components.switch import SwitchEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
 
+from .const import ZS821J
 from .entity import JomooEntity
 from .lib.client import SetOption, SetSettings
 from .lib.protocol import Option
@@ -46,6 +47,8 @@ EXPERIMENTAL = {
 
 
 async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
+    if entry.runtime_data.model == ZS821J:
+        return
     coordinator = entry.runtime_data
     entities = [SettingSwitch(coordinator, key) for key in VERIFIED]
     entities += [SettingSwitch(coordinator, key, experimental=True) for key in EXPERIMENTAL]

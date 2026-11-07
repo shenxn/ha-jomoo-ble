@@ -4,7 +4,7 @@
     "flow_title": "{name}",
     "step": {
       "user": {
-        "title": "JOMOO ZS800J (Bluetooth)",
+        "title": "JOMOO (Bluetooth)",
         "description": "Close the official mini program first: the toilet accepts only one Bluetooth connection. Setup performs one read-only status query (the toilet will beep once). Controls start disabled.",
         "data": {
           "address": "Bluetooth MAC address",
@@ -12,7 +12,7 @@
         }
       },
       "bluetooth_confirm": {
-        "title": "JOMOO ZS800J (Bluetooth)",
+        "title": "JOMOO (Bluetooth)",
         "description": "Set up {name}? Close the official mini program first. Setup performs one read-only status query (the toilet will beep once)."
       }
     },
@@ -80,6 +80,12 @@
       },
       "foam_low": {
         "name": "Foam liquid low"
+      },
+      "auto_flush": {
+        "name": "Automatic flush (experimental)"
+      },
+      "auto_cover": {
+        "name": "Automatic lid opening"
       }
     },
     "button": {
@@ -173,6 +179,15 @@
       },
       "raw_e7": {
         "name": "Raw E7"
+      },
+      "water_temperature": {
+        "name": "Water temperature level"
+      },
+      "seat_temperature": {
+        "name": "Seat temperature level"
+      },
+      "air_temperature": {
+        "name": "Dryer temperature level"
       }
     },
     "switch": {

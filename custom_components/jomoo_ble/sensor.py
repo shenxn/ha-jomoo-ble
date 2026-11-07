@@ -13,6 +13,7 @@ from homeassistant.components.sensor import (
 from homeassistant.const import PERCENTAGE, UnitOfTime
 from homeassistant.helpers.entity import EntityCategory
 
+from .const import ZS821J
 from .entity import JomooEntity
 from .lib.protocol import EXTENDED, FILTER, LID_RING, STATE, WORK, WorkStatus
 
@@ -70,6 +71,12 @@ RAW = {
 
 async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = entry.runtime_data
+    if coordinator.model == ZS821J:
+        specs = {"work_status": SENSORS["work_status"]}
+        for key in ("water_temperature", "seat_temperature", "air_temperature"):
+            specs[key] = Spec(_field("settings", key), icon="mdi:thermometer")
+        async_add_entities(SpecSensor(coordinator, k, v) for k, v in specs.items())
+        return
     entities: list[SensorEntity] = [SpecSensor(coordinator, k, v) for k, v in SENSORS.items()]
     entities.append(LastRefreshSensor(coordinator, "last_refresh"))
     if coordinator.stream_enabled:

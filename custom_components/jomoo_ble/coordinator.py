@@ -20,6 +20,8 @@ from .const import (
     CONF_NAME_PREFIX,
     CONF_POLL_INTERVAL,
     DEFAULT_POLL_INTERVAL,
+    CONF_MODEL,
+    ZS800J,
     DOMAIN,
 )
 from .lib.client import (
@@ -44,12 +46,19 @@ class JomooCoordinator(DataUpdateCoordinator[Snapshot | None]):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self.entry = entry
         self.address: str = entry.data["address"]
-        self.session = make_session(hass, self.address, entry.data[CONF_NAME_PREFIX])
-        self.controls_enabled: bool = _option(entry, CONF_ENABLE_CONTROLS, False)
-        self.experimental_enabled: bool = _option(entry, CONF_ENABLE_EXPERIMENTAL, False)
+        self.model = entry.data.get(CONF_MODEL, ZS800J)
+        self.session = make_session(hass, self.address, entry.data[CONF_NAME_PREFIX], self.model)
+        self.controls_enabled: bool = self.model == ZS800J and _option(
+            entry, CONF_ENABLE_CONTROLS, False
+        )
+        self.experimental_enabled: bool = self.model == ZS800J and _option(
+            entry, CONF_ENABLE_EXPERIMENTAL, False
+        )
         self.last_refresh = None
         self.last_received = None
-        self.stream_enabled = bool(_option(entry, CONF_ENABLE_STATUS_STREAM, False))
+        self.stream_enabled = self.model == ZS800J and bool(
+            _option(entry, CONF_ENABLE_STATUS_STREAM, False)
+        )
         self.stream_error = "not_connected" if self.stream_enabled else None
         if self.stream_enabled:
             self.session.enable_stream(self._stream_changed)

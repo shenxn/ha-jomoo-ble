@@ -10,6 +10,7 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.helpers.entity import EntityCategory
 
+from .const import ZS821J
 from .entity import JomooEntity
 from .lib.protocol import FoamLevel
 
@@ -63,6 +64,12 @@ SENSORS = {
 
 async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = entry.runtime_data
+    if coordinator.model == ZS821J:
+        specs = {k: SENSORS[k] for k in ("lid_open", "ring_open", "seated")}
+        for key in ("auto_flush", "auto_cover"):
+            specs[key] = (_get("settings", key), None, None)
+        async_add_entities(StatusBinarySensor(coordinator, k, *v) for k, v in specs.items())
+        return
     entities: list[BinarySensorEntity] = [
         StatusBinarySensor(coordinator, key, *spec) for key, spec in SENSORS.items()
     ]

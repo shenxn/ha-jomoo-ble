@@ -6,6 +6,7 @@ import re
 from typing import Any
 
 import voluptuous as vol
+from homeassistant.components import bluetooth
 from bleak.exc import BleakError
 from homeassistant.components.bluetooth import (
     BluetoothServiceInfoBleak,
@@ -15,7 +16,7 @@ from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, OptionsFl
 from homeassistant.const import CONF_ADDRESS
 from homeassistant.core import callback
 
-from .bluetooth import make_session, supported_name
+from .bluetooth import advertised_model, make_session, supported_name
 from .const import (
     CONF_ENABLE_STATUS_STREAM,
     CONF_ENABLE_CONTROLS,
@@ -27,7 +28,9 @@ from .const import (
     DOMAIN,
     MAX_POLL_INTERVAL,
     MIN_POLL_INTERVAL,
-    MODEL,
+    CONF_MODEL,
+    ZS800J,
+    ZS821J,
 )
 from .lib.client import SessionError
 from .lib.protocol import ProtocolError
@@ -40,10 +43,15 @@ class JomooConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     def __init__(self) -> None:
+        self._model: str | None = None
         self._discovered: str | None = None
 
     async def _validate(self, address: str, prefix: str) -> str | None:
-        session = make_session(self.hass, address, prefix)
+        info = bluetooth.async_last_service_info(self.hass, address, connectable=True)
+        self._model = advertised_model(info.name, prefix) if info else None
+        if self._model is None:
+            return "cannot_connect"
+        session = make_session(self.hass, address, prefix, self._model)
         error = None
         try:
             await session.poll()
@@ -57,8 +65,8 @@ class JomooConfigFlow(ConfigFlow, domain=DOMAIN):
 
     def _create(self, address: str, prefix: str) -> ConfigFlowResult:
         return self.async_create_entry(
-            title=f"JOMOO {MODEL}",
-            data={CONF_ADDRESS: address, CONF_NAME_PREFIX: prefix},
+            title=f"JOMOO {self._model}",
+            data={CONF_ADDRESS: address, CONF_NAME_PREFIX: prefix, CONF_MODEL: self._model},
             options={
                 CONF_ENABLE_STATUS_STREAM: False,
                 CONF_ENABLE_CONTROLS: False,
@@ -148,7 +156,10 @@ def _valid_interval(value: Any) -> int:
 class JomooOptionsFlow(OptionsFlow):
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
+        read_only = self.config_entry.data.get(CONF_MODEL, ZS800J) == ZS821J
         if user_input is not None:
+            if read_only:
+                user_input = {CONF_POLL_INTERVAL: user_input[CONF_POLL_INTERVAL]}
             try:
                 user_input[CONF_POLL_INTERVAL] = _valid_interval(user_input[CONF_POLL_INTERVAL])
             except (vol.Invalid, ValueError):
@@ -156,26 +167,13 @@ class JomooOptionsFlow(OptionsFlow):
             else:
                 return self.async_create_entry(title="", data=user_input)
         options = self.config_entry.options
-        return self.async_show_form(
-            step_id="init",
-            errors=errors,
-            data_schema=vol.Schema(
-                {
-                    vol.Required(
-                        CONF_ENABLE_STATUS_STREAM,
-                        default=options.get(CONF_ENABLE_STATUS_STREAM, False),
-                    ): bool,
-                    vol.Required(
-                        CONF_ENABLE_CONTROLS, default=options.get(CONF_ENABLE_CONTROLS, False)
-                    ): bool,
-                    vol.Required(
-                        CONF_ENABLE_EXPERIMENTAL,
-                        default=options.get(CONF_ENABLE_EXPERIMENTAL, False),
-                    ): bool,
-                    vol.Required(
-                        CONF_POLL_INTERVAL,
-                        default=options.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL),
-                    ): vol.Coerce(int),
-                }
-            ),
-        )
+        fields = {}
+        if not read_only:
+            for key in (CONF_ENABLE_STATUS_STREAM, CONF_ENABLE_CONTROLS, CONF_ENABLE_EXPERIMENTAL):
+                fields[vol.Required(key, default=options.get(key, False))] = bool
+        fields[
+            vol.Required(
+                CONF_POLL_INTERVAL, default=options.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL)
+            )
+        ] = vol.Coerce(int)
+        return self.async_show_form(step_id="init", errors=errors, data_schema=vol.Schema(fields))

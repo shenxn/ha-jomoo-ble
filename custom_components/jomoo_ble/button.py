@@ -5,6 +5,7 @@ from __future__ import annotations
 from homeassistant.components.button import ButtonEntity
 from homeassistant.helpers.entity import EntityCategory
 
+from .const import ZS821J
 from .entity import JomooEntity
 from .lib.client import Mechanical
 
@@ -29,6 +30,9 @@ ICONS = {
 async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = entry.runtime_data
     entities = [RefreshButton(coordinator, "refresh")]
+    if coordinator.model == ZS821J:
+        async_add_entities(entities)
+        return
     entities += [ActionButton(coordinator, action, False) for action in VERIFIED]
     entities += [ActionButton(coordinator, action, True) for action in EXPERIMENTAL]
     async_add_entities(entities)
